@@ -29,7 +29,7 @@ estudo_rotas_ceara/
 └── mapa_*.png, histograma_*.png, scatter_a1_a2.png, mapa_calor_A*.kml   # Saídas do notebook
 ```
 
-## O que o estudo faz
+## O que o estudo fez
 
 Para cada uma das 310 OAEs do Ceará listadas em `codpro.csv` — pontes e
 viadutos sob administração federal cadastrados no PROARTE/DNIT —, calcula a
@@ -42,43 +42,20 @@ rota alternativa (desvio) caso a OAE seja interditada, em duas variantes:
 O raio de busca padrão é 50 km em torno da OAE; falhas são reprocessadas com
 raio ampliado (ver Fase 5 abaixo).
 
-### Chave de referência: CodPro, não SGE
+### Chave de referência: CodPro
 
 O universo do estudo é identificado pelo **CodPro** (chave do PROARTE/DNIT,
-ex. `OAE657`), lido de `codpro.csv`. O **SGE**, quando a OAE tem um, é
-mantido como coluna informativa em `consolidado.csv` e nos arquivos
-`resultado_A*.txt` — mas não é mais a chave de nada no pipeline.
+ex. `OAE657`), lido de `codpro.csv`. **Nem toda OAE do PROARTE tem SGE atribuído**. 
 
-Isso importa porque **nem toda OAE do PROARTE tem SGE atribuído**. O estudo
-original usava `sges.csv` (306 SGEs) como universo; ao trocar para
-`codpro.csv` (310 CodPro), 4 OAEs que não tinham SGE — e por isso ficavam de
-fora — entraram no estudo:
-
-| CodPro  | OAE                                                    |
-|---------|---------------------------------------------------------|
-| OAE6835 | Ponte km 263,11                                          |
-| OAE6836 | Ponte sobre o Rio Jaguaribe (LE) CICLOVIA                |
-| OAE7291 | Ponte sobre o Rio Cangati (Ponte sobre o Braço do Rio Choró) |
-| OAE7322 | Ponte sobre o Rio Cangati                                |
-
-Essas 4 foram processadas por `processar_novas_oaes.py` (script pontual,
-uso único — pode ser apagado; futuras execuções já processam as 310 direto
-via `executar_estudo_completo.py`). As pastas de `análise_rotas/` das 306
-OAEs originais foram renomeadas de `<SGE>/` para `<CodPro>/` para manter o
-pipeline consistente numa única chave.
-
-## Pipeline — como reproduzir do zero
+## Como reproduzir o estudo
 
 ```
 python executar_estudo_completo.py     # roda o estudo inteiro (pode levar horas)
 ```
 
-Isso executa, em sequência, o que historicamente foi rodado como 5 scripts
-separados (`batch_rotas_route_study.py`, `_reanalise`, `_100km`,
-`_colapsado`, `_refazer_a2` — hoje consolidados neste único
-`executar_estudo_completo.py`):
+Isso executa todas as análises do trabalho:
 
-1. **Fase 1** — passagem principal: A1 + A2, raio 50 km, todos os CodPro.
+1. **Fase 1** — passagem principal: A1 + A2, raio de 50 km.
 2. **Fase 2** — consolidação (`consolidar_dados.py` → `consolidado.csv`).
 3. **Fase 3** — reanálise de qualquer CodPro sem status `encontrada`, mesmo raio.
 4. **Fase 4** — consolidação.
@@ -108,7 +85,7 @@ Produz: `mapa_area_estudo.png`, `mapa_rotas_A1.png`, `mapa_rotas_A2.png`,
 `histograma_veiculo_km_desvio.png`, `scatter_a1_a2.png`,
 `mapa_calor_A1.kml`, `mapa_calor_A2.kml`.
 
-## O que fica de fora (e por quê)
+## Arquivos não disponibilizados neste repositório
 
 Esta pasta guarda apenas os arquivos já processados que o motor usa
 diretamente. Ficaram de fora, por serem dados brutos nacionais/regionais
@@ -129,34 +106,18 @@ partir dos shapefiles brutos) e `enriquecer_osm_com_snv.py` (cruza esse
 resultado com o `nordeste.gpkg` da Geofabrik) — ambos ficaram na raiz do
 repositório por serem etapas nacionais/regionais, não específicas do Ceará.
 
-Também não foram trazidos os scripts e notebooks anteriores ao estudo atual
-(`batch_rotas.py`, `rota_alternativa_v5.py`, `preparar_rede_osm.py`,
-`checkProperties.ipynb`, `insp_dbf.py`) — são exploração descartada ou
-pipelines de outra região (ex. Centro-Oeste), sem relação com o estudo do
-Ceará.
+Por segurança de dados potencialmente críticos, os arquivos abaixo **não estão incluídos nesse banco de dados**:
 
-## O que fica de fora do controle de versão (`.gitignore`)
-
-Esta pasta é pensada para uso local; ao publicar este projeto num
-repositório Git, os arquivos abaixo **não devem ser versionados** (ver
-`.gitignore`):
-
-- **`controle_geral.xlsx`** — dado interno do DNIT/PROARTE: contém números
-  de contrato (`MAN_Contrato`/`REAB_Contrato`), números de processo SEI
-  (`MAN_Proc_SEI`/`REAB_Proc_SEI`), valores orçamentários previstos
-  (`MAN_Valor_Previsto`/`REAB_Valor_Previsto`) e empresas supervisoras
-  contratadas, para as 7.932 OAEs do banco nacional. **Não é dado público.**
+- **`controle_geral.xlsx`** — dado interno do DNIT/PROARTE: contém informações administrativas potencialmente sensíveis.
 - **`OAEs.xlsx`** — base nacional de OAEs (5.852 linhas); os campos em si
   (nome, coordenadas, extensão) não são sigilosos, mas é uma base
-  proprietária de terceiros (PROARTE/DNIT), não gerada por este projeto —
-  só ~5% das linhas (as 310 do Ceará) são de fato usadas aqui.
+  proprietária de terceiros (PROARTE/DNIT), não gerada por este projeto, e, portanto, não incluídas neste repositório.
 - **`*.gpkg`** (`nordeste_enriquecido.gpkg`, 94 MB; `SNV_ESTADUAL_planarizado.gpkg`,
-  534 MB) — não são sigilosos (derivados de dados públicos: SNV/DNIT,
+  534 MB) não são sigilosos (derivados de dados públicos: SNV/DNIT,
   OpenStreetMap/Geofabrik), mas excedem o limite de 100 MB por arquivo do
-  GitHub (o segundo sozinho já ultrapassa).
-- **`análise_rotas/`** (~4,3 GB) — saída regenerável do motor de rotas.
+  GitHub.
+- **`análise_rotas/`** (~4,3 GB) — saída regenerável do motor de rotas, com os KMLs e relatórios da rota alternativa de cada OAE.
 
 Sem `OAEs.xlsx` e `controle_geral.xlsx` presentes localmente (mas fora do
-repo), os scripts e o notebook não rodam — quem clonar o repositório precisa
-obter esses dois arquivos por fora (ex. diretamente do PROARTE/DNIT) e
-colocá-los nesta pasta antes de executar o pipeline.
+repo), os scripts e o notebook não rodam.
+Quem quiser clonar o repositório precisará contatar os autores para obter os arquivos faltantes antes de executar o pipeline.
