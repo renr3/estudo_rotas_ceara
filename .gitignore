@@ -1,0 +1,34 @@
+# ── Dados internos/confidenciais do DNIT-PROARTE — NÃO publicar ──────────
+# controle_geral.xlsx contém números de contrato, processos SEI, valores
+# orçamentários previstos e empresas supervisoras (nacional, 7.932 OAEs).
+controle_geral.xlsx
+
+# Base nacional de OAEs (proprietária, não gerada por este projeto) —
+# necessária localmente para rodar os scripts, mas fora do repo.
+OAEs.xlsx
+
+# ── Redes viárias — arquivos grandes demais para versionar ────────────────
+# Derivados de dados públicos (SNV/DNIT, OpenStreetMap/Geofabrik), mas na
+# casa de centenas de MB; SNV_ESTADUAL_planarizado.gpkg sozinho já excede
+# o limite de 100 MB por arquivo do GitHub.
+*.gpkg
+
+# ── Saída do motor de rotas ────────────────────────────────────────────────
+# Milhares de KML/txt por OAE (~4,3 GB) — regenerável rodando
+# executar_estudo_completo.py.
+análise_rotas/
+
+# Arquivos temporários de listas de CodPro usadas nas fases do orquestrador
+_codpro_*.csv
+_sges_*.csv
+
+# ── Python ──────────────────────────────────────────────────────────────
+__pycache__/
+*.pyc
+
+# ── Jupyter ─────────────────────────────────────────────────────────────
+.ipynb_checkpoints/
+
+# ── Sistema operacional ───────────────────────────────────────────────────
+.DS_Store
+Thumbs.db
