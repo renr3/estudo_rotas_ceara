@@ -52,6 +52,15 @@ GPKG_OSM      = "nordeste_enriquecido.gpkg"
 # EOD = Em Obras de Duplicação: a via existe e é pavimentada, apenas está sendo ampliada
 SUPERFICIES_A2 = ["PAV", "DUP", "EOD"]
 
+# CodPro cuja própria OAE está sobre via não pavimentada: restringir a Análise
+# A2 a SUPERFICIES_A2 não faz sentido nesses casos, pois nem a via de origem
+# (onde a OAE está) entraria na rede filtrada — resultando em "sem_interseccao"
+# mesmo a OAE estando sobre uma via real. Para esses CodPro, A2 usa a mesma
+# rede sem filtro da A1.
+A2_SEM_FILTRO_CODPRO = {
+    "OAE519", "OAE537", "OAE633", "OAE634", "OAE648", "OAE661",
+}
+
 # Raio de busca em torno da OAE (km)
 RAIO_OSM_KM   = 50
 
@@ -71,6 +80,11 @@ OSM_TIMEOUT_S = 60   # usado somente no fallback Overpass
 CRS_METRICO = 5880   # SIRGAS 2000 / Brazil Polyconic
 
 TOLERANCIA_NO_M = 50  # metros — raio de fusão de nós no grafo (Union-Find)
+
+# Teto absoluto do raio de exclusão nas tentativas de detectar A/B (sem_interseccao).
+# Além dos multiplicadores fixos (até 10x o raio-base), continua dobrando o
+# raio até esse teto — evita halt em coordenadas de OAE muito imprecisas.
+RAIO_EXCLUSAO_MAX_M = 500.0
 
 # Modo SNV desativado para este estudo
 USAR_SNV    = False
@@ -729,8 +743,15 @@ def calcular_modo(codpro_code, lat, lon, C_m, exclusao_geom,
     exclusao_usada = exclusao_geom
     raio_final     = _raio_base
 
-    for _mult in [1.0, 1.5, 2.0, 3.0, 5.0, 10.0]:
-        _raio_tent = _raio_base * _mult
+    # Tentativas fixas (até 10x o raio-base); se nenhuma intersectar, continua
+    # dobrando o raio em valor absoluto até RAIO_EXCLUSAO_MAX_M antes de desistir.
+    _tentativas_m = [_raio_base * m for m in (1.0, 1.5, 2.0, 3.0, 5.0, 10.0)]
+    _ultimo = _tentativas_m[-1]
+    while _ultimo < RAIO_EXCLUSAO_MAX_M:
+        _ultimo = min(_ultimo * 2.0, RAIO_EXCLUSAO_MAX_M)
+        _tentativas_m.append(_ultimo)
+
+    for _raio_tent in _tentativas_m:
         _excl_tent = C_m.buffer(_raio_tent)
         A_m, B_m   = encontrar_pontos_AB(gdf, _excl_tent)
         # Exige dist(A,B) > 2×TOLERANCIA_NO_M para impedir fusão transitiva:
@@ -739,14 +760,14 @@ def calcular_modo(codpro_code, lat, lon, C_m, exclusao_geom,
         if A_m is not None and B_m is not None and A_m.distance(B_m) > 2 * TOLERANCIA_NO_M:
             exclusao_usada = _excl_tent
             raio_final     = _raio_tent
-            if _mult > 1.0:
-                print(f"      [{_label}] Raio ampliado: {_raio_base:.0f} m → {_raio_tent:.0f} m (×{_mult:.1f})")
+            if _raio_tent > _raio_base:
+                print(f"      [{_label}] Raio ampliado: {_raio_base:.0f} m → {_raio_tent:.0f} m")
             break
 
     if A_m is None or B_m is None or A_m.distance(B_m) <= 2 * TOLERANCIA_NO_M:
         msg = (
             f"=== ANÁLISE: {_label} (raio {raio_km} km) ===\n"
-            f"Zona de exclusão ({_raio_base:.0f} m, max tentativa {_raio_base*10:.0f} m): "
+            f"Zona de exclusão ({_raio_base:.0f} m, max tentativa {_tentativas_m[-1]:.0f} m): "
             f"nenhuma via interseccionada.\n"
             f"Pontos A e B não detectados. Sem rota.\n"
             f"Sugestão: verifique as coordenadas da OAE e a cobertura do GPKG.\n"
@@ -1072,17 +1093,24 @@ def main():
                     os.path.join(pasta, "resultado_A1.txt"),
                 )
 
-            # --- Análise A2: PAV + DUP + EOD + NULL ---
+            # --- Análise A2: PAV + DUP + EOD + NULL (exceção: A2_SEM_FILTRO_CODPRO) ---
             if "A2" in ANALISES:
-                print(f"  [A2] PAV + DUP + EOD + NULL  |  raio {RAIO_OSM_KM} km")
+                if codpro_code in A2_SEM_FILTRO_CODPRO:
+                    gdf_a2_efetivo = gdf_osm_a1
+                    desc_a2        = "Todas as superficies (sem filtro - OAE em via nao pavimentada)"
+                    print(f"  [A2] Sem filtro de superficie (OAE em via nao pavimentada)  |  raio {RAIO_OSM_KM} km")
+                else:
+                    gdf_a2_efetivo = gdf_osm_a2
+                    desc_a2        = "PAV + DUP + EOD + NULL"
+                    print(f"  [A2] PAV + DUP + EOD + NULL  |  raio {RAIO_OSM_KM} km")
                 found_a2, rel_a2, res_a2 = calcular_modo(
                     codpro_code, lat, lon, C_m, exclusao_geom,
-                    None, gdf_osm_a2, "OSM", pasta,
+                    None, gdf_a2_efetivo, "OSM", pasta,
                     raio_excl_m=raio_excl_m, label="A2",
                 )
                 relatorio.append(rel_a2)
                 _salvar_resultado_txt(
-                    codpro_code, sge_val, "A2", "PAV + DUP + EOD + NULL", res_a2,
+                    codpro_code, sge_val, "A2", desc_a2, res_a2,
                     os.path.join(pasta, "resultado_A2.txt"),
                 )
 
